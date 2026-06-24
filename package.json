@@ -2,12 +2,12 @@
   "name": "vue-free-layout",
   "version": "1.0.0",
   "description": "高性能 Vue3 自由布局组件，支持像素/百分比混合定位、流畅动画、ResizeObserver 自适应",
-  "author": "",
+  "author": "mk9007@163.com",
   "license": "MIT",
-  "homepage": "https://github.com/your-username/vue-free-layout",
+  "homepage": "https://github.com/makebin/vue-free-layout",
   "repository": {
     "type": "git",
-    "url": "https://github.com/your-username/vue-free-layout"
+    "url": "https://github.com/makebin/vue-free-layout"
   },
   "keywords": [
     "vue",
