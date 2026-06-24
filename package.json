@@ -1,5 +1,5 @@
 {
-  "name": "vue-free-layout",
+  "name": "vue-any-layout",
   "version": "1.0.0",
   "description": "高性能 Vue3 自由布局组件，支持像素/百分比混合定位、流畅动画、ResizeObserver 自适应",
   "author": "mk9007@163.com",
