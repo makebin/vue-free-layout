@@ -17,6 +17,7 @@ const containerSize = ref({ width: 0, height: 0 })
 const clickedItem = ref<string | null>(null)
 const changeLog = ref<string[]>([])
 const useMockPlayer = ref(false)
+const layoutRef = ref<InstanceType<typeof FreeLayout> | null>(null)
 
 const currentPreset = computed(() => {
   return layoutPresets.find(p => p.name === currentLayoutName.value) || layoutPresets[0]
@@ -134,6 +135,125 @@ function toggleCompact() {
 onMounted(() => {
   addLog('组件已挂载，当前布局: ' + currentPreset.value.label)
 })
+
+function testRefreshLayout() {
+  layoutRef.value?.refreshLayout()
+  const size = layoutRef.value?.getContainerSize()
+  addLog(`手动刷新布局，容器尺寸: ${Math.round(size?.width || 0)} × ${Math.round(size?.height || 0)}`)
+}
+
+function testResolveAllItems() {
+  const resolved = layoutRef.value?.resolveAllItems()
+  if (resolved && resolved.length > 0) {
+    const first = resolved[0]
+    addLog(`解析像素尺寸: 第1个区块 x=${Math.round(first.pixelX)}px, y=${Math.round(first.pixelY)}px, w=${Math.round(first.pixelW)}px, h=${Math.round(first.pixelH)}px`)
+  }
+}
+
+function testGetItemPixelRect() {
+  const rect = layoutRef.value?.getItemPixelRect(1)
+  if (rect) {
+    addLog(`获取 id=1 的区块尺寸: x=${Math.round(rect.x)}px, y=${Math.round(rect.y)}px, w=${Math.round(rect.w)}px, h=${Math.round(rect.h)}px`)
+  }
+}
+
+function testSelectItem() {
+  const firstItem = items.value[0]
+  if (firstItem) {
+    const ok = layoutRef.value?.toggleSelect(firstItem.id)
+    const selected = layoutRef.value?.getSelectedItems()
+    addLog(`选中区块 id=${firstItem.id}: ${ok ? '成功' : '失败'}, 当前选中 ${selected?.length || 0} 个`)
+  }
+}
+
+function testClearSelection() {
+  layoutRef.value?.clearSelection()
+  addLog('已清空选中')
+}
+
+function testHideItem() {
+  const firstItem = items.value.find(i => i.visible !== false)
+  if (firstItem) {
+    layoutRef.value?.hideItem(firstItem.id)
+    addLog(`隐藏区块 id=${firstItem.id}`)
+  }
+}
+
+function testShowAll() {
+  items.value.forEach(item => {
+    layoutRef.value?.showItem(item.id)
+  })
+  addLog('显示所有区块')
+}
+
+function testBringToFront() {
+  const firstItem = items.value[0]
+  if (firstItem) {
+    layoutRef.value?.bringToFront(firstItem.id)
+    const item = layoutRef.value?.getItemById(firstItem.id)
+    addLog(`区块 id=${firstItem.id} 置顶, zIndex=${item?.zIndex}`)
+  }
+}
+
+function testSendToBack() {
+  const firstItem = items.value[0]
+  if (firstItem) {
+    layoutRef.value?.sendToBack(firstItem.id)
+    const item = layoutRef.value?.getItemById(firstItem.id)
+    addLog(`区块 id=${firstItem.id} 置底, zIndex=${item?.zIndex}`)
+  }
+}
+
+function testAddItem() {
+  const colors = ['#FF6B6B', '#4ECDC4', '#45B7D1', '#96CEB4', '#FFEAA7']
+  const newId = Math.max(...items.value.map(i => Number(i.id) || 0), 0) + 1
+  const newItem: LayoutItem<DemoPayload> = {
+    id: newId,
+    x: `${Math.random() * 70 + 10}%`,
+    y: `${Math.random() * 70 + 10}%`,
+    w: '20%',
+    h: '20%',
+    payload: {
+      title: `新增区块 ${newId}`,
+      bgColor: colors[newId % colors.length],
+    },
+  }
+  layoutRef.value?.addItem(newItem)
+  addLog(`新增区块 id=${newId}`)
+}
+
+function testRemoveItem() {
+  const lastItem = items.value[items.value.length - 1]
+  if (lastItem) {
+    layoutRef.value?.removeItem(lastItem.id)
+    addLog(`删除区块 id=${lastItem.id}`)
+  }
+}
+
+function testUpdateItem() {
+  const firstItem = items.value[0]
+  if (firstItem) {
+    layoutRef.value?.updateItem(firstItem.id, {
+      x: '5%',
+      y: '5%',
+      w: '30%',
+      h: '30%',
+    })
+    addLog(`更新区块 id=${firstItem.id} 的位置尺寸`)
+  }
+}
+
+function handleSelectionChange(selected: LayoutItem<DemoPayload>[]) {
+  addLog(`选中变化: 当前选中 ${selected.length} 个区块`)
+}
+
+function handleItemDoubleClick(item: LayoutItem<DemoPayload>, index: number) {
+  addLog(`双击: ${item.payload.title} (index=${index})`)
+}
+
+function handleItemContextMenu(item: LayoutItem<DemoPayload>, index: number) {
+  addLog(`右键: ${item.payload.title} (index=${index})`)
+}
 </script>
 
 <template>
@@ -171,6 +291,24 @@ onMounted(() => {
         <button @click="toggleCompact">切换紧凑模式</button>
         <button @click="resetLayout">重置</button>
       </div>
+      <div class="action-btns">
+        <button @click="testRefreshLayout">刷新布局</button>
+        <button @click="testResolveAllItems">解析全部像素</button>
+        <button @click="testGetItemPixelRect">获取id=1尺寸</button>
+      </div>
+      <div class="action-btns">
+        <button @click="testSelectItem">切换选中</button>
+        <button @click="testClearSelection">清空选中</button>
+        <button @click="testHideItem">隐藏一个</button>
+        <button @click="testShowAll">显示全部</button>
+      </div>
+      <div class="action-btns">
+        <button @click="testBringToFront">置顶</button>
+        <button @click="testSendToBack">置底</button>
+        <button @click="testAddItem">新增</button>
+        <button @click="testRemoveItem">删除最后</button>
+        <button @click="testUpdateItem">更新第1个</button>
+      </div>
       <div class="duration-control">
         <label>动画时长: {{ animationDuration }}ms</label>
         <input type="range" v-model.number="animationDuration" min="0" max="1000" step="50" />
@@ -180,11 +318,15 @@ onMounted(() => {
     <div class="demo-main">
       <div class="layout-area">
         <FreeLayout
+          ref="layoutRef"
           :items="items"
           :animation-duration="animationDuration"
           overflow="hidden"
           @item-click="handleItemClick"
+          @item-double-click="handleItemDoubleClick"
+          @item-contextmenu="handleItemContextMenu"
           @items-change="handleItemsChange"
+          @selection-change="handleSelectionChange"
           @container-resize="handleContainerResize"
         >
           <template #default="{ item, index }">

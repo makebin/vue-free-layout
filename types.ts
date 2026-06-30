@@ -7,11 +7,14 @@ export interface LayoutItem<TPayload = any> {
   w: SizeValue
   h: SizeValue
   zIndex?: number
+  selected?: boolean
+  visible?: boolean
+  locked?: boolean
   payload?: TPayload
   [key: string]: any
 }
 
-export interface LayoutItemStyle {
+export interface LayoutItemStyle extends Record<string, any> {
   position: 'absolute'
   left: string
   top: string
@@ -32,4 +35,15 @@ export interface FreeLayoutOptions {
   animationEasing?: string
   itemKey?: string
   roundPixel?: boolean
+  multiSelect?: boolean
 }
+
+export interface ResolvedLayoutItem<TPayload = any> extends LayoutItem<TPayload> {
+  pixelX: number
+  pixelY: number
+  pixelW: number
+  pixelH: number
+}
+
+export type LayoutItemPartial = Partial<Omit<LayoutItem, 'id'>>
+

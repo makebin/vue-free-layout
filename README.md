@@ -10,16 +10,17 @@
 - **渲染优化**：v-memo 优化，位置变化不会触发内部组件重渲染
 - **TypeScript 支持**：完整的类型定义，泛型 payload 类型推断
 - **Composable 设计**：核心逻辑抽离为 `useFreeLayout`，可独立复用
-- **丰富事件**：支持点击、悬停、布局变动、容器尺寸变化等事件
+- **丰富 API**：20+ 方法，支持选中、可见性、层级、增删改查等操作
+- **丰富事件**：点击、双击、右键、悬停、选中变化、布局变动、容器尺寸变化等
 
 ## 安装
 
 ```bash
-npm install vue-free-layout
+npm install vue-any-layout
 # 或
-pnpm add vue-free-layout
+pnpm add vue-any-layout
 # 或
-yarn add vue-free-layout
+yarn add vue-any-layout
 ```
 
 ## 快速开始
@@ -27,8 +28,10 @@ yarn add vue-free-layout
 ```vue
 <script setup lang="ts">
 import { ref } from 'vue'
-import { FreeLayout } from 'vue-free-layout'
-import type { LayoutItem } from 'vue-free-layout'
+import { FreeLayout } from 'vue-any-layout'
+import type { LayoutItem } from 'vue-any-layout'
+
+const layoutRef = ref()
 
 const items = ref<LayoutItem[]>([
   { id: 1, x: 20, y: 20, w: 300, h: 200, payload: { title: '区块1' } },
@@ -42,6 +45,7 @@ function handleItemClick(item, index) {
 
 <template>
   <FreeLayout
+    ref="layoutRef"
     :items="items"
     @item-click="handleItemClick"
   >
@@ -76,6 +80,7 @@ function handleItemClick(item, index) {
 | animationEasing | `string` | `cubic-bezier(0.4, 0, 0.2, 1)` | 动画缓动函数 |
 | roundPixel | `boolean` | `false` | 是否对小数像素取整 |
 | overflow | `'hidden' \| 'auto' \| 'visible' \| 'scroll'` | `'hidden'` | 容器溢出处理 |
+| multiSelect | `boolean` | `false` | 是否允许多选 |
 
 ### LayoutItem 数据结构
 
@@ -87,6 +92,9 @@ interface LayoutItem<TPayload = any> {
   w: number | string          // 宽度
   h: number | string          // 高度
   zIndex?: number             // 层级，默认 1
+  selected?: boolean          // 是否选中
+  visible?: boolean           // 是否可见，默认 true
+  locked?: boolean            // 是否锁定，锁定时不触发点击/双击/右键
   payload?: TPayload           // 业务数据，透传给插槽
   [key: string]: any          // 允许扩展任意字段
 }
@@ -102,10 +110,14 @@ interface LayoutItem<TPayload = any> {
 | 事件名 | 参数 | 说明 |
 |--------|------|------|
 | item-click | `(item: LayoutItem, index: number)` | 点击区块 |
+| item-double-click | `(item: LayoutItem, index: number)` | 双击区块 |
+| item-contextmenu | `(item: LayoutItem, index: number, event: MouseEvent)` | 右键区块（已阻止默认菜单） |
 | item-mouseenter | `(item: LayoutItem, index: number)` | 鼠标进入区块 |
 | item-mouseleave | `(item: LayoutItem, index: number)` | 鼠标离开区块 |
 | items-change | `(changedItems: LayoutItem[])` | 布局数据变动（返回变动的项） |
+| selection-change | `(selectedItems: LayoutItem[])` | 选中项变化 |
 | container-resize | `(size: { width: number, height: number })` | 容器尺寸变化 |
+| ready | `()` | 组件挂载完成 |
 
 ### Slots
 
@@ -126,15 +138,69 @@ interface LayoutItem<TPayload = any> {
 </FreeLayout>
 ```
 
-### Expose
+### Expose 方法
+
+通过 `ref` 调用组件实例方法：
 
 ```vue
+<script setup>
 const layoutRef = ref()
 
 // 获取容器尺寸
 const size = layoutRef.value.getContainerSize()
 // { width: 800, height: 600 }
+</script>
 ```
+
+#### 布局相关
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `getContainerSize()` | 无 | `{ width, height }` | 获取容器尺寸 |
+| `refreshLayout()` | 无 | `void` | 手动刷新布局（重新测量容器） |
+| `resolveItem(item)` | `LayoutItem` | `{ x, y, w, h }` | 换算单个区块为像素值 |
+| `resolveAllItems()` | 无 | `ResolvedLayoutItem[]` | 换算全部区块，附加 pixelX/Y/W/H |
+| `getItemById(id)` | `string \| number` | `LayoutItem \| undefined` | 按 id 获取区块 |
+| `getItemIndex(id)` | `string \| number` | `number` | 获取区块索引 |
+| `getItemPixelRect(id)` | `string \| number` | `{ x, y, w, h } \| null` | 按 id 获取像素尺寸 |
+
+#### 选中相关
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `selectItem(id)` | `string \| number` | `boolean` | 选中区块（单选模式取消其他） |
+| `deselectItem(id)` | `string \| number` | `boolean` | 取消选中 |
+| `toggleSelect(id)` | `string \| number` | `boolean` | 切换选中状态 |
+| `clearSelection()` | 无 | `void` | 清空所有选中 |
+| `getSelectedItems()` | 无 | `LayoutItem[]` | 获取所有选中的区块 |
+
+#### 可见性相关
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `showItem(id)` | `string \| number` | `boolean` | 显示区块 |
+| `hideItem(id)` | `string \| number` | `boolean` | 隐藏区块 |
+| `toggleVisibility(id)` | `string \| number` | `boolean` | 切换显示/隐藏 |
+| `getVisibleItems()` | 无 | `LayoutItem[]` | 获取所有可见区块 |
+
+#### 区块管理
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `updateItem(id, partial)` | `string \| number, LayoutItemPartial` | `boolean` | 更新区块的部分属性 |
+| `addItem(item)` | `LayoutItem` | `number` | 新增一个区块，返回索引 |
+| `removeItem(id)` | `string \| number` | `boolean` | 删除指定区块 |
+| `clearAll()` | 无 | `void` | 清空所有区块 |
+
+#### 图层控制
+
+| 方法 | 参数 | 返回值 | 说明 |
+|------|------|--------|------|
+| `setZIndex(id, zIndex)` | `string \| number, number` | `boolean` | 设置层级 |
+| `bringToFront(id)` | `string \| number` | `boolean` | 置顶 |
+| `sendToBack(id)` | `string \| number` | `boolean` | 置底 |
+| `moveForward(id)` | `string \| number` | `boolean` | 上移一层 |
+| `moveBackward(id)` | `string \| number` | `boolean` | 下移一层 |
 
 ## 进阶用法
 
@@ -193,16 +259,92 @@ function switchLayout(name) {
 </template>
 ```
 
-### 4. 使用 useFreeLayout Composable
+### 4. 选中态 + 右键菜单
+
+```vue
+<script setup lang="ts">
+const layoutRef = ref()
+
+function handleContextMenu(item, index, event) {
+  // 先选中该区块
+  layoutRef.value.selectItem(item.id)
+  // 显示自定义右键菜单
+  showContextMenu(event.clientX, event.clientY, item)
+}
+
+function handleSelectionChange(selected) {
+  console.log('当前选中:', selected.length, '个区块')
+}
+
+function deleteSelected() {
+  const selected = layoutRef.value.getSelectedItems()
+  selected.forEach(item => layoutRef.value.removeItem(item.id))
+}
+</script>
+
+<template>
+  <FreeLayout
+    ref="layoutRef"
+    :items="items"
+    :multi-select="true"
+    @item-contextmenu="handleContextMenu"
+    @selection-change="handleSelectionChange"
+  >
+    <template #default="{ item }">
+      <div :class="{ active: item.selected }">
+        {{ item.payload.title }}
+      </div>
+    </template>
+  </FreeLayout>
+</template>
+```
+
+### 5. 动态增删改
+
+```ts
+const layoutRef = ref()
+
+// 新增
+layoutRef.value.addItem({
+  id: Date.now(),
+  x: '30%',
+  y: '30%',
+  w: 200,
+  h: 150,
+  payload: { title: '新区块' },
+})
+
+// 更新位置
+layoutRef.value.updateItem(1, { x: '50%', y: '50%' })
+
+// 置顶
+layoutRef.value.bringToFront(1)
+
+// 删除
+layoutRef.value.removeItem(1)
+
+// 清空
+layoutRef.value.clearAll()
+```
+
+### 6. 使用 useFreeLayout Composable
 
 如果只需要布局计算逻辑，不使用组件：
 
 ```ts
-import { useFreeLayout } from 'vue-free-layout'
+import { useFreeLayout } from 'vue-any-layout'
 
 const itemsRef = ref([...])
-const { containerRef, containerSize, itemStyles } = useFreeLayout(itemsRef, {
+const {
+  containerRef,
+  containerSize,
+  itemStyles,
+  selectItem,
+  bringToFront,
+  // ... 所有方法都可用
+} = useFreeLayout(itemsRef, {
   animationDuration: 300,
+  multiSelect: false,
 })
 
 // containerRef 绑定到容器元素
@@ -239,6 +381,7 @@ payload 变化 → 触发内容重新渲染
 2. **key 必须唯一**：`items` 中的 `id` 字段必须唯一
 3. **动画性能**：位置动画推荐使用 transform，尺寸动画使用 width/height
 4. **移动端**：移动端浏览器对 `calc()` 支持良好，但注意小数像素渲染
+5. **锁定态**：设置 `locked: true` 后，区块不会触发 click/dblclick/contextmenu 事件
 
 ## 常见布局模板
 
@@ -289,10 +432,13 @@ Array.from({ length: 9 }, (_, i) => ({
 npm install
 
 # 启动演示
-npm run dev
+npm run dev:demo
 
 # 构建
 npm run build
+
+# 预览构建产物
+npm run preview
 ```
 
 ## License
